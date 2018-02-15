@@ -26,7 +26,7 @@ namespace OASIS.Integration.Models
 {
     public class VerifyUserOTP
     {
-        public long UserID { get; set; }
+        //public long UserID { get; set; }
         public string Username { get; set; }
         public string OTPCode { get; set; }
         public VerificationTypeEnum VerificationType { get; set; }

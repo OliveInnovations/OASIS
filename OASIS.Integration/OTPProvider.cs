@@ -38,6 +38,7 @@ namespace OASIS.Integration
         private string ApplicationKey { get; set; }
         private string APIKey { get; set; }
         public string DirectoryName { get; set; }
+        public string RemoteIP { get; set; }
 
         #region constructors
         /// <summary>
@@ -66,12 +67,14 @@ namespace OASIS.Integration
         /// <param name="ApplicationKey">Application KEY from OASIS admin consonsole for the application</param>
         /// <param name="APIKey">API KEY from OASIS admin consonsole for the application</param>
         /// <param name="DirectoryName">(Optional) Overwrite issuer name and allow same username over different applications</param>
-        public OTPProvider(long ApplicationID, string ApplicationKey, string APIKey, string DirectoryName = null)
+        /// <param name="remoteIP">(Optional) Remote IP address of request, allows restriction of access based on Geo IP data</param>
+        public OTPProvider(long ApplicationID, string ApplicationKey, string APIKey, string DirectoryName = null, string RemoteIP = null)
         {
             this.ApplicationID = ApplicationID;
             this.ApplicationKey = ApplicationKey;
             this.APIKey = APIKey;
             this.DirectoryName = DirectoryName;
+            this.RemoteIP = RemoteIP;
         }
         #endregion
 
@@ -194,7 +197,7 @@ namespace OASIS.Integration
                 try
                 {
                     var response = JsonDeserialize<VerifyUserOTPResponse>(stringResponse);
-                    string userID = (string.IsNullOrEmpty(userOTP.Username) ? userOTP.UserID.ToString() : userOTP.Username);
+                    string userID = userOTP.Username;
                     if (VerifySignature(response.SignedResponse,response.RandomToken, userID, response.State.ToString(),response.SignedTime))
                     {
                         return response;
@@ -275,7 +278,12 @@ namespace OASIS.Integration
             var reqsecret = "";
             using (HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes(APIKey)))
             {
-                var hashData = Encoding.UTF8.GetBytes(string.Format("{0}:{1}:{2}:{3}", ApplicationID, thisepoch, ApplicationKey,content));
+                var hashData = Encoding.UTF8.GetBytes(string.Format("{0}:{1}:{2}:{3}{4}"
+                                , ApplicationID
+                                , thisepoch
+                                , ApplicationKey
+                                , content
+                                , (!string.IsNullOrEmpty(RemoteIP) ? ":" + RemoteIP : "")));
                 var hmacHash = hmac.ComputeHash(hashData);
                 reqsecret = Convert.ToBase64String(hmacHash);
             }
@@ -283,6 +291,9 @@ namespace OASIS.Integration
             client.DefaultRequestHeaders.Add("X-OASIS-EPOCH", thisepoch.ToString());
             client.DefaultRequestHeaders.Add("X-OASIS-APPID", ApplicationID.ToString());
             client.DefaultRequestHeaders.Add("X-OASIS-REQSECRET", reqsecret);
+            if (!string.IsNullOrEmpty(RemoteIP))
+                client.DefaultRequestHeaders.Add("X-OASIS-IP", RemoteIP);
+
             return client;
         }
 
